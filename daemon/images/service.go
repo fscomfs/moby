@@ -127,20 +127,34 @@ func (i *ImageService) Children(id image.ID) []image.ID {
 // TODO: accept an opt struct instead of container?
 func (i *ImageService) CreateLayer(container *container.Container, initFunc layer.MountInit) (layer.RWLayer, error) {
 	var layerID layer.ChainID
+	var coverLayerID layer.ChainID
 	if container.ImageID != "" {
 		img, err := i.imageStore.Get(container.ImageID)
 		if err != nil {
 			return nil, err
 		}
 		layerID = img.RootFS.ChainID()
+		if container.CoverImageId != "" {
+			coverImg, err := i.imageStore.Get(container.CoverImageId)
+			if err != nil {
+				return nil, err
+			}
+			coverLayerID = coverImg.RootFS.ChainID()
+		}
 	}
 
 	rwLayerOpts := &layer.CreateRWLayerOpts{
 		MountLabel: container.MountLabel,
 		InitFunc:   initFunc,
+		IsCover:    true,
 		StorageOpt: container.HostConfig.StorageOpt,
 	}
-
+	if coverLayerID != "" {
+		if rwLayerOpts.StorageOpt == nil {
+			rwLayerOpts.StorageOpt = make(map[string]string)
+		}
+		rwLayerOpts.StorageOpt["coverLayerID"] = coverLayerID.String()
+	}
 	// Indexing by OS is safe here as validation of OS has already been performed in create() (the only
 	// caller), and guaranteed non-nil
 	return i.layerStores[container.OS].CreateRWLayer(container.ID, layerID, rwLayerOpts)
