@@ -3,11 +3,6 @@ package layer // import "github.com/docker/docker/layer"
 import (
 	"errors"
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
-	"sync"
-
 	"github.com/docker/distribution"
 	"github.com/docker/docker/daemon/graphdriver"
 	"github.com/docker/docker/pkg/idtools"
@@ -18,6 +13,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vbatts/tar-split/tar/asm"
 	"github.com/vbatts/tar-split/tar/storage"
+	"io"
+	"os"
+	"path/filepath"
+	"sync"
 )
 
 // maxLayerDepth represents the maximum number of
@@ -479,15 +478,19 @@ func (ls *layerStore) Release(l Layer) ([]Metadata, error) {
 
 func (ls *layerStore) CreateRWLayer(name string, parent ChainID, opts *CreateRWLayerOpts) (_ RWLayer, err error) {
 	var (
-		storageOpt map[string]string
-		initFunc   MountInit
-		mountLabel string
+		storageOpt   map[string]string
+		initFunc     MountInit
+		isCover      bool
+		coverLayerID string
+		mountLabel   string
 	)
 
 	if opts != nil {
 		mountLabel = opts.MountLabel
 		storageOpt = opts.StorageOpt
 		initFunc = opts.InitFunc
+		isCover = opts.IsCover
+		coverLayerID = opts.StorageOpt["coverLayerID"]
 	}
 
 	ls.locker.Lock(name)
@@ -502,6 +505,8 @@ func (ls *layerStore) CreateRWLayer(name string, parent ChainID, opts *CreateRWL
 
 	var pid string
 	var p *roLayer
+	var cover *roLayer
+	var coverId string
 	if string(parent) != "" {
 		ls.layerL.Lock()
 		p = ls.get(parent)
@@ -536,14 +541,33 @@ func (ls *layerStore) CreateRWLayer(name string, parent ChainID, opts *CreateRWL
 		}
 		m.initID = pid
 	}
-
 	createOpts := &graphdriver.CreateOpts{
 		StorageOpt: storageOpt,
+	}
+	if isCover && coverLayerID != "" { //cover layer
+		createOpts.StorageOpt["isCover"] = "true"
+		ls.layerL.Lock()
+		cover = ls.get(ChainID(coverLayerID))
+		ls.layerL.Unlock()
+		if cover == nil {
+			return nil, ErrLayerDoesNotExist
+		}
+		coverId = cover.cacheID
+		// Release parent chain if error
+		defer func() {
+			if err != nil {
+				ls.layerL.Lock()
+				ls.releaseLayer(cover)
+				ls.layerL.Unlock()
+			}
+		}()
+		createOpts.StorageOpt["coverLayerID"] = coverId
 	}
 
 	if err = ls.driver.CreateReadWrite(m.mountID, pid, createOpts); err != nil {
 		return
 	}
+
 	if err = ls.saveMount(m); err != nil {
 		return
 	}

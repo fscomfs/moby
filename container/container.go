@@ -75,6 +75,7 @@ type Container struct {
 	Args            []string
 	Config          *containertypes.Config
 	ImageID         image.ID `json:"Image"`
+	CoverImageId    image.ID `json:"CoverImage"`
 	NetworkSettings *network.Settings
 	LogPath         string
 	Name            string

@@ -16,6 +16,7 @@ import (
 	"sync"
 
 	"github.com/docker/docker/daemon/graphdriver"
+	"github.com/docker/docker/daemon/graphdriver/copy"
 	"github.com/docker/docker/daemon/graphdriver/overlayutils"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/chrootarchive"
@@ -387,7 +388,6 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 	if err := os.WriteFile(path.Join(dir, "link"), []byte(lid), 0644); err != nil {
 		return err
 	}
-
 	// if no parent directory, done
 	if parent == "" {
 		return nil
@@ -411,6 +411,12 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		}
 	}
 
+	if opts != nil && opts.StorageOpt != nil && opts.StorageOpt["isCover"] == "true" {
+		if err := copy.DirCopy(path.Join(d.dir(opts.StorageOpt["coverLayerID"]), diffDirName), path.Join(dir, diffDirName), copy.Content, true); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -426,6 +432,8 @@ func (d *Driver) parseStorageOpt(storageOpt map[string]string, driver *Driver) e
 				return err
 			}
 			driver.options.quota.Size = uint64(size)
+		case "coverlayerid":
+		case "iscover":
 		default:
 			return fmt.Errorf("Unknown option %s", key)
 		}

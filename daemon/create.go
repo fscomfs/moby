@@ -111,13 +111,20 @@ func (daemon *Daemon) containerCreate(opts createOpts) (containertypes.CreateRes
 // Create creates a new container from the given configuration with a given name.
 func (daemon *Daemon) create(opts createOpts) (retC *container.Container, retErr error) {
 	var (
-		ctr   *container.Container
-		img   *image.Image
-		imgID image.ID
-		err   error
-		os    = runtime.GOOS
+		ctr        *container.Container
+		img        *image.Image
+		imgID      image.ID
+		coverImgId image.ID
+		err        error
+		os         = runtime.GOOS
 	)
-
+	//find base image base_image_sha256
+	var baseImageIsParent string
+	for _, env := range opts.params.Config.Env {
+		if strings.Index(env, "BASE_IMAGE_FLAG") >= 0 {
+			baseImageIsParent = strings.Split(env, "=")[1]
+		}
+	}
 	if opts.params.Config.Image != "" {
 		img, err = daemon.imageService.GetImage(opts.params.Config.Image, opts.params.Platform)
 		if err != nil {
@@ -128,10 +135,15 @@ func (daemon *Daemon) create(opts createOpts) (retC *container.Container, retErr
 			return nil, system.ErrNotSupportedOperatingSystem
 		}
 		imgID = img.ID()
+		var parent *image.Image
+		if baseImageIsParent == "true" && img.Parent != "" {
+			parent, err = daemon.imageService.GetImage(img.Parent.String(), opts.params.Platform)
+			imgID = parent.ID()
+			coverImgId = img.ID()
+		}
 	} else if isWindows {
 		os = "linux" // 'scratch' case.
 	}
-
 	// On WCOW, if are not being invoked by the builder to create this container (where
 	// ignoreImagesArgEscaped will be true) - if the image already has its arguments escaped,
 	// ensure that this is replicated across to the created container to avoid double-escaping
@@ -151,6 +163,7 @@ func (daemon *Daemon) create(opts createOpts) (retC *container.Container, retErr
 	if ctr, err = daemon.newContainer(opts.params.Name, os, opts.params.Config, opts.params.HostConfig, imgID, opts.managed); err != nil {
 		return nil, err
 	}
+	ctr.CoverImageId = coverImgId
 	defer func() {
 		if retErr != nil {
 			err = daemon.cleanupContainer(ctr, types.ContainerRmConfig{
