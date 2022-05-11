@@ -177,6 +177,7 @@ type MountInit func(root containerfs.ContainerFS) error
 type CreateRWLayerOpts struct {
 	MountLabel string
 	InitFunc   MountInit
+	IsCover    bool
 	StorageOpt map[string]string
 }
 

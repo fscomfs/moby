@@ -17,6 +17,7 @@ import (
 	"sync"
 
 	"github.com/docker/docker/daemon/graphdriver"
+	"github.com/docker/docker/daemon/graphdriver/copy"
 	"github.com/docker/docker/daemon/graphdriver/overlayutils"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/chrootarchive"
@@ -427,7 +428,11 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 			return err
 		}
 	}
-
+	if opts != nil && opts.StorageOpt != nil && opts.StorageOpt["isCover"] == "true" {
+		if err := copy.DirCopy(path.Join(d.dir(opts.StorageOpt["coverLayerID"]), diffDirName), path.Join(dir, diffDirName), copy.Content, true); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
