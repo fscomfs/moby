@@ -471,8 +471,11 @@ func (daemon *Daemon) restore() error {
 	}
 	group.Wait()
 
-	daemon.netController, err = daemon.initNetworkController(activeSandboxes)
-	if err != nil {
+	// Initialize the network controller and configure network settings.
+	//
+	// Note that we cannot initialize the network controller earlier, as it
+	// needs to know if there's active sandboxes (running containers).
+	if err = daemon.initNetworkController(activeSandboxes); err != nil {
 		return fmt.Errorf("Error initializing network controller: %v", err)
 	}
 
@@ -1038,9 +1041,9 @@ func NewDaemon(ctx context.Context, config *config.Config, pluginStore *plugin.S
 		EventsService:             d.EventsService,
 		ImageStore:                imageStore,
 		LayerStore:                layerStore,
-		MaxConcurrentDownloads:    *config.MaxConcurrentDownloads,
-		MaxConcurrentUploads:      *config.MaxConcurrentUploads,
-		MaxDownloadAttempts:       *config.MaxDownloadAttempts,
+		MaxConcurrentDownloads:    config.MaxConcurrentDownloads,
+		MaxConcurrentUploads:      config.MaxConcurrentUploads,
+		MaxDownloadAttempts:       config.MaxDownloadAttempts,
 		ReferenceStore:            rs,
 		RegistryService:           registryService,
 		TrustKey:                  trustKey,

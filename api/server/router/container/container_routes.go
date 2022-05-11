@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"syscall"
 
 	"github.com/containerd/containerd/platforms"
 	"github.com/docker/docker/api/server/httpstatus"
@@ -20,7 +19,6 @@ import (
 	containerpkg "github.com/docker/docker/container"
 	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/pkg/ioutils"
-	"github.com/moby/sys/signal"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -226,12 +224,7 @@ func (s *containerRouter) postContainersStop(ctx context.Context, w http.Respons
 		version = httputils.VersionFromContext(ctx)
 	)
 	if versions.GreaterThanOrEqualTo(version, "1.42") {
-		if sig := r.Form.Get("signal"); sig != "" {
-			if _, err := signal.ParseSignal(sig); err != nil {
-				return errdefs.InvalidParameter(err)
-			}
-			options.Signal = sig
-		}
+		options.Signal = r.Form.Get("signal")
 	}
 	if tmpSeconds := r.Form.Get("t"); tmpSeconds != "" {
 		valSeconds, err := strconv.Atoi(tmpSeconds)
@@ -254,18 +247,8 @@ func (s *containerRouter) postContainersKill(ctx context.Context, w http.Respons
 		return err
 	}
 
-	var sig syscall.Signal
 	name := vars["name"]
-
-	// If we have a signal, look at it. Otherwise, do nothing
-	if sigStr := r.Form.Get("signal"); sigStr != "" {
-		var err error
-		if sig, err = signal.ParseSignal(sigStr); err != nil {
-			return errdefs.InvalidParameter(err)
-		}
-	}
-
-	if err := s.backend.ContainerKill(name, uint64(sig)); err != nil {
+	if err := s.backend.ContainerKill(name, r.Form.Get("signal")); err != nil {
 		var isStopped bool
 		if errdefs.IsConflict(err) {
 			isStopped = true
@@ -294,12 +277,7 @@ func (s *containerRouter) postContainersRestart(ctx context.Context, w http.Resp
 		version = httputils.VersionFromContext(ctx)
 	)
 	if versions.GreaterThanOrEqualTo(version, "1.42") {
-		if sig := r.Form.Get("signal"); sig != "" {
-			if _, err := signal.ParseSignal(sig); err != nil {
-				return errdefs.InvalidParameter(err)
-			}
-			options.Signal = sig
-		}
+		options.Signal = r.Form.Get("signal")
 	}
 	if tmpSeconds := r.Form.Get("t"); tmpSeconds != "" {
 		valSeconds, err := strconv.Atoi(tmpSeconds)
