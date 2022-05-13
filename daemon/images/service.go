@@ -127,6 +127,7 @@ func (i *ImageService) Children(id image.ID) []image.ID {
 // TODO: accept an opt struct instead of container?
 func (i *ImageService) CreateLayer(container *container.Container, initFunc layer.MountInit) (layer.RWLayer, error) {
 	var layerID layer.ChainID
+	var coverLayerID layer.ChainID
 	if container.ImageID != "" {
 		img, err := i.imageStore.Get(container.ImageID)
 		if err != nil {
