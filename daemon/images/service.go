@@ -134,14 +134,27 @@ func (i *ImageService) CreateLayer(container *container.Container, initFunc laye
 			return nil, err
 		}
 		layerID = img.RootFS.ChainID()
+		if container.CoverImageId != "" {
+			coverImg, err := i.imageStore.Get(container.CoverImageId)
+			if err != nil {
+				return nil, err
+			}
+			coverLayerID = coverImg.RootFS.ChainID()
+		}
 	}
 
 	rwLayerOpts := &layer.CreateRWLayerOpts{
 		MountLabel: container.MountLabel,
 		InitFunc:   initFunc,
+		IsCover:    true,
 		StorageOpt: container.HostConfig.StorageOpt,
 	}
-
+	if coverLayerID != "" {
+		if rwLayerOpts.StorageOpt == nil {
+			rwLayerOpts.StorageOpt = make(map[string]string)
+		}
+		rwLayerOpts.StorageOpt["coverLayerID"] = coverLayerID.String()
+	}
 	// Indexing by OS is safe here as validation of OS has already been performed in create() (the only
 	// caller), and guaranteed non-nil
 	return i.layerStores[container.OS].CreateRWLayer(container.ID, layerID, rwLayerOpts)
