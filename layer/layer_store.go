@@ -534,9 +534,7 @@ func (ls *layerStore) CreateRWLayer(name string, parent ChainID, opts *CreateRWL
 	var cover *roLayer
 	var coverId string
 	if string(parent) != "" {
-		ls.layerL.Lock()
 		p = ls.get(parent)
-		ls.layerL.Unlock()
 		if p == nil {
 			return nil, ErrLayerDoesNotExist
 		}
@@ -573,9 +571,7 @@ func (ls *layerStore) CreateRWLayer(name string, parent ChainID, opts *CreateRWL
 	}
 	if isCover && coverLayerID != "" { //cover layer
 		createOpts.StorageOpt["isCover"] = "true"
-		ls.layerL.Lock()
 		cover = ls.get(ChainID(coverLayerID))
-		ls.layerL.Unlock()
 		if cover == nil {
 			return nil, ErrLayerDoesNotExist
 		}
