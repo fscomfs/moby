@@ -448,6 +448,8 @@ func (d *Driver) parseStorageOpt(storageOpt map[string]string, driver *Driver) e
 				return err
 			}
 			driver.options.quota.Size = uint64(size)
+		case "iscover":
+		case "coverlayerid":
 		default:
 			return fmt.Errorf("Unknown option %s", key)
 		}
