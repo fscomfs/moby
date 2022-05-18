@@ -124,11 +124,10 @@ func (daemon *Daemon) containerCreate(opts createOpts) (containertypes.Container
 // Create creates a new container from the given configuration with a given name.
 func (daemon *Daemon) create(opts createOpts) (retC *container.Container, retErr error) {
 	var (
-		ctr        *container.Container
-		img        *image.Image
-		imgID      image.ID
-		coverImgId image.ID
-		err        error
+		ctr   *container.Container
+		img   *image.Image
+		imgID image.ID
+		err   error
 	)
 
 	os := runtime.GOOS
@@ -152,15 +151,8 @@ func (daemon *Daemon) create(opts createOpts) (retC *container.Container, retErr
 			}
 		}
 		imgID = img.ID()
-
 		if isWindows && img.OS == "linux" && !system.LCOWSupported() {
 			return nil, errors.New("operating system on which parent image was created is not Windows")
-		}
-		var parent *image.Image
-		if baseImageIsParent == "true" && img.Parent != "" {
-			parent, err = daemon.imageService.GetImage(img.Parent.String(), opts.params.Platform)
-			imgID = parent.ID()
-			coverImgId = img.ID()
 		}
 	} else {
 		if isWindows {
@@ -187,7 +179,11 @@ func (daemon *Daemon) create(opts createOpts) (retC *container.Container, retErr
 	if ctr, err = daemon.newContainer(opts.params.Name, os, opts.params.Config, opts.params.HostConfig, imgID, opts.managed); err != nil {
 		return nil, err
 	}
-	ctr.CoverImageId = coverImgId
+	if baseImageIsParent == "true" {
+		ctr.IsCover = true
+	} else {
+		ctr.IsCover = false
+	}
 	defer func() {
 		if retErr != nil {
 			if err := daemon.cleanupContainer(ctr, true, true); err != nil {

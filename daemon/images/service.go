@@ -134,19 +134,18 @@ func (i *ImageService) CreateLayer(container *container.Container, initFunc laye
 			return nil, err
 		}
 		layerID = img.RootFS.ChainID()
-		if container.CoverImageId != "" {
-			coverImg, err := i.imageStore.Get(container.CoverImageId)
-			if err != nil {
-				return nil, err
+		if container.IsCover {
+			if len(img.RootFS.DiffIDs) > 1 {
+				coverLayerID = layerID
+				layerID = layer.CreateChainID(img.RootFS.DiffIDs[0 : len(img.RootFS.DiffIDs)-1])
 			}
-			coverLayerID = coverImg.RootFS.ChainID()
 		}
 	}
 
 	rwLayerOpts := &layer.CreateRWLayerOpts{
 		MountLabel: container.MountLabel,
 		InitFunc:   initFunc,
-		IsCover:    true,
+		IsCover:    coverLayerID != "",
 		StorageOpt: container.HostConfig.StorageOpt,
 	}
 	if coverLayerID != "" {

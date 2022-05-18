@@ -17,7 +17,6 @@ import (
 	"sync"
 
 	"github.com/docker/docker/daemon/graphdriver"
-	"github.com/docker/docker/daemon/graphdriver/copy"
 	"github.com/docker/docker/daemon/graphdriver/overlayutils"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/chrootarchive"
@@ -75,6 +74,7 @@ const (
 	workDirName   = "work"
 	mergedDirName = "merged"
 	lowerFile     = "lower"
+	coverFile     = "cover"
 	maxDepth      = 128
 
 	// idLength represents the number of random characters
@@ -429,7 +429,7 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		}
 	}
 	if opts != nil && opts.StorageOpt != nil && opts.StorageOpt["isCover"] == "true" {
-		if err := copy.DirCopy(path.Join(d.dir(opts.StorageOpt["coverLayerID"]), diffDirName), path.Join(dir, diffDirName), copy.Content, true); err != nil {
+		if err := ioutil.WriteFile(path.Join(dir, coverFile), []byte(opts.StorageOpt["coverLayerID"]), 0666); err != nil {
 			return err
 		}
 	}
@@ -577,7 +577,13 @@ func (d *Driver) Get(id, mountLabel string) (_ containerfs.ContainerFS, retErr e
 	} else if !os.IsNotExist(err) {
 		return nil, err
 	}
-
+	var coverLayerCache string
+	if _, err := os.Stat(path.Join(dir, coverFile)); err == nil {
+		cover, err2 := ioutil.ReadFile(path.Join(dir, coverFile))
+		if err2 == nil {
+			coverLayerCache = d.dir(string(cover))
+		}
+	}
 	var opts string
 	if readonly {
 		opts = indexOff + userxattr + "lowerdir=" + diffDir + ":" + strings.Join(absLowers, ":")
@@ -618,6 +624,15 @@ func (d *Driver) Get(id, mountLabel string) (_ containerfs.ContainerFS, retErr e
 			return mountFrom(d.home, source, target, mType, flags, label)
 		}
 		mountTarget = path.Join(id, mergedDirName)
+	}
+
+	var rwDiffOpt string
+	if coverLayerCache != "" && !readonly {
+		rwDiffOpt = indexOff + userxattr + "lowerdir=" + coverLayerCache + ",upperdir=" + diffDir + "_tmp" + ",workdir=" + workDir + "_tmp"
+		mountCoverLayer := label.FormatMountLabel(rwDiffOpt, mountLabel)
+		if err := mount("overlay", diffDir, "overlay", 0, mountCoverLayer); err != nil {
+			return nil, fmt.Errorf("error creating overlay mount to %s: %v", mergedDir, err)
+		}
 	}
 
 	if err := mount("overlay", mountTarget, "overlay", 0, mountData); err != nil {
