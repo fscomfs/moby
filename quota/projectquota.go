@@ -219,6 +219,28 @@ func (q *Control) SetQuota(targetPath string, quota Quota) error {
 	return setProjectQuota(q.backingFsBlockDev, projectID, quota)
 }
 
+//func (q *Control) SetQuotaForCoverLay(targetPath string, quota Quota) error {
+//	state := getPquotaState()
+//	state.Lock()
+//	projectID := state.nextProjectID
+//
+//	//
+//	// assign project id to new container directory
+//	//
+//	err := setProjectID(targetPath, projectID)
+//	if err != nil {
+//		state.Unlock()
+//		return err
+//	}
+//
+//	state.nextProjectID++
+//	state.Unlock()
+//
+//	q.Lock()
+//	q.quotas[targetPath] = projectID
+//	q.Unlock()
+//}
+
 // setProjectQuota - set the quota for project id on xfs block device
 func setProjectQuota(backingFsBlockDev string, projectID uint32, quota Quota) error {
 	var d C.fs_disk_quota_t

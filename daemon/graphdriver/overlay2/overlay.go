@@ -17,7 +17,6 @@ import (
 	"sync"
 
 	"github.com/docker/docker/daemon/graphdriver"
-	"github.com/docker/docker/daemon/graphdriver/copy"
 	"github.com/docker/docker/daemon/graphdriver/overlayutils"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/chrootarchive"
@@ -364,6 +363,14 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		GID: rootGID,
 	}
 
+	var coverLayerID string
+	var isCover bool
+	if opts != nil && opts.StorageOpt != nil && opts.StorageOpt["isCover"] == "true" {
+		isCover = true
+		coverLayerID = opts.StorageOpt["coverLayerID"]
+	} else {
+		isCover = false
+	}
 	if err := idtools.MkdirAllAndChown(path.Dir(dir), 0710, dirID); err != nil {
 		return err
 	}
@@ -389,6 +396,12 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 			if err := d.quotaCtl.SetQuota(dir, driver.options.quota); err != nil {
 				return err
 			}
+			if isCover {
+				if err := d.quotaCtl.SetQuota(d.dir(coverLayerID), driver.options.quota); err != nil {
+					return err
+				}
+			}
+
 		}
 	}
 
@@ -429,9 +442,12 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		}
 	}
 	if opts != nil && opts.StorageOpt != nil && opts.StorageOpt["isCover"] == "true" {
-		if err := copy.DirCopy(path.Join(d.dir(opts.StorageOpt["coverLayerID"]), diffDirName), path.Join(dir, diffDirName), copy.Content, true); err != nil {
+		if err := os.Symlink(path.Join(d.dir(opts.StorageOpt["coverLayerID"]), diffDirName), path.Join(dir, diffDirName)); err != nil {
 			return err
 		}
+		//if err := copy.DirCopy(path.Join(d.dir(opts.StorageOpt["coverLayerID"]), diffDirName), path.Join(dir, diffDirName), copy.Content, true); err != nil {
+		//	return err
+		//}
 	}
 	return nil
 }
