@@ -126,4 +126,5 @@ type CommitConfig struct {
 	ContainerMountLabel string
 	ContainerOS         string
 	ParentImageID       string
+	IsCover             bool
 }

@@ -160,6 +160,7 @@ func (daemon *Daemon) CreateImageFromContainer(name string, c *backend.CreateIma
 		Config:              newConfig,
 		ContainerConfig:     container.Config,
 		ContainerID:         container.ID,
+		IsCover:             container.IsCover,
 		ContainerMountLabel: container.MountLabel,
 		ContainerOS:         container.OS,
 		ParentImageID:       string(container.ImageID),

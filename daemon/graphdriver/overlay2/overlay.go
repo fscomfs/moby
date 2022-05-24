@@ -397,18 +397,22 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 				return err
 			}
 			if isCover {
-				if err := d.quotaCtl.SetQuota(d.dir(coverLayerID), driver.options.quota); err != nil {
+				if err := d.quotaCtl.SetPathQuota(d.dir(coverLayerID), fmt.Sprintf("%d%s", driver.options.quota.Size/1024/1024, "M")); err != nil {
 					return err
 				}
 			}
 
 		}
 	}
-
-	if err := idtools.MkdirAndChown(path.Join(dir, diffDirName), 0755, root); err != nil {
-		return err
+	if isCover {
+		if err := os.Symlink(path.Join(d.dir(opts.StorageOpt["coverLayerID"]), diffDirName), path.Join(dir, diffDirName)); err != nil {
+			return err
+		}
+	} else {
+		if err := idtools.MkdirAndChown(path.Join(dir, diffDirName), 0755, root); err != nil {
+			return err
+		}
 	}
-
 	lid := overlayutils.GenerateID(idLength, logger)
 	if err := os.Symlink(path.Join("..", id, diffDirName), path.Join(d.home, linkDir, lid)); err != nil {
 		return err
@@ -440,14 +444,6 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		if err := ioutil.WriteFile(path.Join(dir, lowerFile), []byte(lower), 0666); err != nil {
 			return err
 		}
-	}
-	if opts != nil && opts.StorageOpt != nil && opts.StorageOpt["isCover"] == "true" {
-		if err := os.Symlink(path.Join(d.dir(opts.StorageOpt["coverLayerID"]), diffDirName), path.Join(dir, diffDirName)); err != nil {
-			return err
-		}
-		//if err := copy.DirCopy(path.Join(d.dir(opts.StorageOpt["coverLayerID"]), diffDirName), path.Join(dir, diffDirName), copy.Content, true); err != nil {
-		//	return err
-		//}
 	}
 	return nil
 }
@@ -762,6 +758,10 @@ func (d *Driver) Diff(id, parent string) (io.ReadCloser, error) {
 
 	// never reach here if we are running in UserNS
 	diffPath := d.getDiffPath(id)
+	diffPath, err := filepath.EvalSymlinks(diffPath)
+	if err != nil {
+
+	}
 	logger.Debugf("Tar with options on %s", diffPath)
 	return archive.TarWithOptions(diffPath, &archive.TarOptions{
 		Compression:    archive.Uncompressed,

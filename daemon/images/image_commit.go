@@ -38,8 +38,13 @@ func (i *ImageService) CommitImage(c backend.CommitConfig) (image.ID, error) {
 			return "", err
 		}
 	}
-
-	l, err := layerStore.Register(rwTar, parent.RootFS.ChainID())
+	var parentChainID layer.ChainID
+	if c.IsCover {
+		parentChainID = layer.CreateChainID(parent.RootFS.DiffIDs[0 : len(parent.RootFS.DiffIDs)-1])
+	} else {
+		parentChainID = parent.RootFS.ChainID()
+	}
+	l, err := layerStore.Register(rwTar, parentChainID)
 	if err != nil {
 		return "", err
 	}
@@ -52,6 +57,7 @@ func (i *ImageService) CommitImage(c backend.CommitConfig) (image.ID, error) {
 		ContainerConfig: c.ContainerConfig,
 		Config:          c.Config,
 		DiffID:          l.DiffID(),
+		IsCover:         c.IsCover,
 	}
 	config, err := json.Marshal(image.NewChildImage(parent, cc, c.ContainerOS))
 	if err != nil {

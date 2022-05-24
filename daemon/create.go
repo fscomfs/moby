@@ -179,6 +179,7 @@ func (daemon *Daemon) create(opts createOpts) (retC *container.Container, retErr
 	if ctr, err = daemon.newContainer(opts.params.Name, os, opts.params.Config, opts.params.HostConfig, imgID, opts.managed); err != nil {
 		return nil, err
 	}
+
 	if baseImageIsParent == "true" {
 		ctr.IsCover = true
 	} else {

@@ -150,14 +150,19 @@ type ChildConfig struct {
 	DiffID          layer.DiffID
 	ContainerConfig *container.Config
 	Config          *container.Config
+	IsCover         bool
 }
 
 // NewChildImage creates a new Image as a child of this image.
 func NewChildImage(img *Image, child ChildConfig, os string) *Image {
 	isEmptyLayer := layer.IsEmpty(child.DiffID)
 	var rootFS *RootFS
+	isCover := child.IsCover
 	if img.RootFS != nil {
 		rootFS = img.RootFS.Clone()
+		if isCover && len(rootFS.DiffIDs) > 1 {
+			rootFS.DiffIDs = rootFS.DiffIDs[0 : len(rootFS.DiffIDs)-1]
+		}
 	} else {
 		rootFS = NewRootFS()
 	}
@@ -170,6 +175,12 @@ func NewChildImage(img *Image, child ChildConfig, os string) *Image {
 		child.Comment,
 		strings.Join(child.ContainerConfig.Cmd, " "),
 		isEmptyLayer)
+	var his []History
+	if isCover && len(img.History) > 1 {
+		his = append(img.History[0:len(img.History)-1], imgHistory)
+	} else {
+		his = append(img.History, imgHistory)
+	}
 
 	return &Image{
 		V1Image: V1Image{
@@ -184,7 +195,7 @@ func NewChildImage(img *Image, child ChildConfig, os string) *Image {
 			Created:         imgHistory.Created,
 		},
 		RootFS:     rootFS,
-		History:    append(img.History, imgHistory),
+		History:    his,
 		OSFeatures: img.OSFeatures,
 		OSVersion:  img.OSVersion,
 	}

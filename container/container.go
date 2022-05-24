@@ -73,6 +73,7 @@ type Container struct {
 	Config          *containertypes.Config
 	ImageID         image.ID `json:"Image"`
 	IsCover         bool
+	CoverImageId    image.ID `json:"CoverImage"`
 	NetworkSettings *network.Settings
 	LogPath         string
 	Name            string

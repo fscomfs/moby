@@ -578,11 +578,7 @@ func (ls *layerStore) CreateRWLayer(name string, parent ChainID, opts *CreateRWL
 		coverId = cover.cacheID
 		// Release parent chain if error
 		defer func() {
-			if err != nil {
-				ls.layerL.Lock()
-				ls.releaseLayer(cover)
-				ls.layerL.Unlock()
-			}
+			ls.releaseLayer(cover)
 		}()
 		createOpts.StorageOpt["coverLayerID"] = coverId
 	}

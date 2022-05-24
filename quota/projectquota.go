@@ -53,9 +53,14 @@ const int Q_XGETQSTAT_PRJQUOTA = QCMD(Q_XGETQSTAT, PRJQUOTA);
 */
 import "C"
 import (
+	"bufio"
+	"fmt"
+	"io"
 	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"unsafe"
 
@@ -63,6 +68,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
+	"os/exec"
 )
 
 type pquotaState struct {
@@ -292,6 +298,72 @@ func (q *Control) GetQuota(targetPath string, quota *Quota) error {
 	}
 	quota.Size = uint64(d.d_blk_hardlimit) * 512
 
+	return nil
+}
+func (q *Control) SetPathQuota(targetPath string, size string) error {
+	projectID, ok := q.quotas[targetPath]
+	if !ok {
+		state := getPquotaState()
+		state.Lock()
+		projectID = state.nextProjectID
+
+		state.nextProjectID++
+		state.Unlock()
+		q.Lock()
+		q.quotas[targetPath] = projectID
+		q.Unlock()
+	}
+	//
+	// set the quota limit for the container's project id
+	//
+
+	logrus.Debugf("SetQuota(%s, s%): projectID=%d", targetPath, size, projectID)
+	//xfs_quota -x -c "project -s -p /dev-docker/overlay2/test-quota2 60"
+	var args []string
+	var p = strconv.Itoa(int(projectID))
+	args = append(args, "-x")
+	args = append(args, "-c")
+	args = append(args, "project -s -p "+targetPath+" "+p)
+	cmd := exec.Command("xfs_quota", args...)
+	stdout, err := cmd.StdoutPipe()
+	cmd.Stderr = os.Stderr
+	err = cmd.Start()
+	if err == nil {
+		err = cmd.Wait()
+		reader := bufio.NewReader(stdout)
+		for {
+			line, err2 := reader.ReadString('\n')
+			if err2 != nil || io.EOF == err2 {
+				break
+			}
+			fmt.Println(line)
+
+		}
+		var args2 []string
+		args2 = append(args2, "-x")
+		args2 = append(args2, "-c")
+		args2 = append(args2, "limit -p  bsoft="+size+" bhard="+size+" "+p)
+		//xfs_quota -x -c "limit -p bsoft=500M bhard=500M 60"
+		cmd2 := exec.Command("xfs_quota", args2...)
+		stdout2, err := cmd2.StdoutPipe()
+		cmd2.Stderr = os.Stderr
+		err = cmd2.Start()
+		if err == nil {
+			err = cmd2.Wait()
+			reader := bufio.NewReader(stdout2)
+			for {
+				line, err2 := reader.ReadString('\n')
+				if err2 != nil || io.EOF == err2 {
+					break
+				}
+				fmt.Println(line)
+
+			}
+
+		}
+	} else {
+
+	}
 	return nil
 }
 
