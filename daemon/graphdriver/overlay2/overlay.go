@@ -74,6 +74,7 @@ const (
 	workDirName   = "work"
 	mergedDirName = "merged"
 	lowerFile     = "lower"
+	coverFile     = "cover"
 	maxDepth      = 128
 
 	// idLength represents the number of random characters
@@ -405,6 +406,9 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		}
 	}
 	if isCover {
+		if err := ioutil.WriteFile(path.Join(dir, coverFile), []byte(opts.StorageOpt["coverLayerID"]), 0666); err != nil {
+			return err
+		}
 		if err := os.Symlink(path.Join(d.dir(opts.StorageOpt["coverLayerID"]), diffDirName), path.Join(dir, diffDirName)); err != nil {
 			return err
 		}
@@ -578,6 +582,13 @@ func (d *Driver) Get(id, mountLabel string) (_ containerfs.ContainerFS, retErr e
 	}()
 
 	workDir := path.Join(dir, workDirName)
+	if _, err := os.Stat(path.Join(dir, coverFile)); err == nil {
+		cover, err2 := ioutil.ReadFile(path.Join(dir, coverFile))
+		if err2 == nil {
+			diffDir = d.dir(path.Join(string(cover), diffDirName))
+			workDir = d.dir(path.Join(string(cover), workDirName))
+		}
+	}
 	splitLowers := strings.Split(string(lowers), ":")
 	absLowers := make([]string, len(splitLowers))
 	for i, s := range splitLowers {
