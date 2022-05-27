@@ -74,6 +74,7 @@ type Container struct {
 	ImageID         image.ID `json:"Image"`
 	IsCover         bool
 	CoverImageId    image.ID `json:"CoverImage"`
+	RwQuotaSize     string   `json:"RwQuotaSize"`
 	NetworkSettings *network.Settings
 	LogPath         string
 	Name            string

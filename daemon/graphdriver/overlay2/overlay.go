@@ -391,14 +391,23 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		if err := d.parseStorageOpt(opts.StorageOpt, driver); err != nil {
 			return err
 		}
-
-		if driver.options.quota.Size > 0 {
+		var rwQuotaSize = quota.Quota{Size: 0}
+		if opts.StorageOpt["rwQuotaSize"] != "" {
+			size, err := units.RAMInBytes(opts.StorageOpt["rwQuotaSize"])
+			if err == nil {
+				rwQuotaSize.Size = uint64(size)
+			}
+		}
+		if rwQuotaSize.Size == 0 && driver.options.quota.Size > 0 {
+			rwQuotaSize.Size = driver.options.quota.Size
+		}
+		if rwQuotaSize.Size > 0 {
 			// Set container disk quota limit
-			if err := d.quotaCtl.SetQuota(dir, driver.options.quota); err != nil {
+			if err := d.quotaCtl.SetQuota(dir, rwQuotaSize); err != nil {
 				return err
 			}
 			if isCover {
-				if err := d.quotaCtl.SetPathQuota(d.dir(coverLayerID), fmt.Sprintf("%d%s", driver.options.quota.Size/1024/1024, "M")); err != nil {
+				if err := d.quotaCtl.SetPathQuota(d.dir(coverLayerID), fmt.Sprintf("%d%s", rwQuotaSize.Size/1024/1024, "M")); err != nil {
 					return err
 				}
 			}
@@ -466,6 +475,7 @@ func (d *Driver) parseStorageOpt(storageOpt map[string]string, driver *Driver) e
 			driver.options.quota.Size = uint64(size)
 		case "iscover":
 		case "coverlayerid":
+		case "rwquotasize":
 		default:
 			return fmt.Errorf("Unknown option %s", key)
 		}

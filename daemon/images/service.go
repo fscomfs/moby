@@ -148,12 +148,13 @@ func (i *ImageService) CreateLayer(container *container.Container, initFunc laye
 		IsCover:    coverLayerID != "",
 		StorageOpt: container.HostConfig.StorageOpt,
 	}
+	if rwLayerOpts.StorageOpt == nil {
+		rwLayerOpts.StorageOpt = make(map[string]string)
+	}
 	if coverLayerID != "" {
-		if rwLayerOpts.StorageOpt == nil {
-			rwLayerOpts.StorageOpt = make(map[string]string)
-		}
 		rwLayerOpts.StorageOpt["coverLayerID"] = coverLayerID.String()
 	}
+	rwLayerOpts.StorageOpt["rwQuotaSize"] = container.RwQuotaSize
 	// Indexing by OS is safe here as validation of OS has already been performed in create() (the only
 	// caller), and guaranteed non-nil
 	return i.layerStores[container.OS].CreateRWLayer(container.ID, layerID, rwLayerOpts)

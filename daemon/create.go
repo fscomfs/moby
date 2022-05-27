@@ -132,9 +132,13 @@ func (daemon *Daemon) create(opts createOpts) (retC *container.Container, retErr
 
 	os := runtime.GOOS
 	var baseImageIsParent string
+	var rwQuotaSize string
 	for _, env := range opts.params.Config.Env {
 		if strings.Index(env, "BASE_IMAGE_FLAG") >= 0 {
 			baseImageIsParent = strings.Split(env, "=")[1]
+		}
+		if strings.Index(env, "RW_QUOTA_SIZE") >= 0 {
+			rwQuotaSize = strings.Split(env, "=")[1]
 		}
 	}
 	if opts.params.Config.Image != "" {
@@ -179,7 +183,7 @@ func (daemon *Daemon) create(opts createOpts) (retC *container.Container, retErr
 	if ctr, err = daemon.newContainer(opts.params.Name, os, opts.params.Config, opts.params.HostConfig, imgID, opts.managed); err != nil {
 		return nil, err
 	}
-
+	ctr.RwQuotaSize = rwQuotaSize
 	if baseImageIsParent == "true" {
 		ctr.IsCover = true
 	} else {

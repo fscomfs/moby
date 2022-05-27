@@ -509,6 +509,7 @@ func (ls *layerStore) CreateRWLayer(name string, parent ChainID, opts *CreateRWL
 		isCover      bool
 		coverLayerID string
 		mountLabel   string
+		rwQuotaSize  string
 	)
 
 	if opts != nil {
@@ -517,6 +518,10 @@ func (ls *layerStore) CreateRWLayer(name string, parent ChainID, opts *CreateRWL
 		initFunc = opts.InitFunc
 		isCover = opts.IsCover
 		coverLayerID = opts.StorageOpt["coverLayerID"]
+		if opts.StorageOpt["rwQuotaSize"] != "" {
+			rwQuotaSize = opts.StorageOpt["rwQuotaSize"]
+		}
+
 	}
 
 	ls.locker.Lock(name)
@@ -583,6 +588,9 @@ func (ls *layerStore) CreateRWLayer(name string, parent ChainID, opts *CreateRWL
 		createOpts.StorageOpt["coverLayerID"] = coverId
 	}
 
+	if rwQuotaSize != "" {
+		createOpts.StorageOpt["rwQuotaSize"] = rwQuotaSize
+	}
 	if err = ls.driver.CreateReadWrite(m.mountID, pid, createOpts); err != nil {
 		return
 	}
