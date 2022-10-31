@@ -590,13 +590,16 @@ func (d *Driver) Get(id, mountLabel string) (_ containerfs.ContainerFS, retErr e
 			}
 		}
 	}()
-
+	isCover := false
+	coverId := ""
 	workDir := path.Join(dir, workDirName)
 	if _, err := os.Stat(path.Join(dir, coverFile)); err == nil {
 		cover, err2 := ioutil.ReadFile(path.Join(dir, coverFile))
 		if err2 == nil {
 			diffDir = d.dir(path.Join(string(cover), diffDirName))
 			workDir = d.dir(path.Join(string(cover), workDirName))
+			isCover = true
+			coverId = string(cover)
 		}
 	}
 	splitLowers := strings.Split(string(lowers), ":")
@@ -640,7 +643,12 @@ func (d *Driver) Get(id, mountLabel string) (_ containerfs.ContainerFS, retErr e
 		if readonly {
 			opts = indexOff + userxattr + "lowerdir=" + path.Join(id, diffDirName) + ":" + string(lowers)
 		} else {
-			opts = indexOff + userxattr + "lowerdir=" + string(lowers) + ",upperdir=" + path.Join(id, diffDirName) + ",workdir=" + path.Join(id, workDirName)
+			if isCover {
+				opts = indexOff + userxattr + "lowerdir=" + string(lowers) + ",upperdir=" + path.Join(coverId, diffDirName) + ",workdir=" + path.Join(coverId, workDirName)
+			} else {
+				opts = indexOff + userxattr + "lowerdir=" + string(lowers) + ",upperdir=" + path.Join(id, diffDirName) + ",workdir=" + path.Join(id, workDirName)
+			}
+
 		}
 		mountData = label.FormatMountLabel(opts, mountLabel)
 		if len(mountData) > pageSize-1 {
